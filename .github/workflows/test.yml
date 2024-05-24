@@ -50,7 +50,7 @@ jobs:
           online_version="$tag_name"
           echo "online_version: $online_version"
 
-          download_url=`cat tmp_tmp.txt | awk -F "," "{ for(i=1; i<=NF; i++) { print $i } }" | grep "browser_download_url" | grep  ".zip" | grep -v ".sha" | grep "win32" | grep -v 'arm64' | grep "x64" | awk -F '"' "{ print $4 }"`
+          download_url=`cat tmp_tmp.txt | awk -F "," "{ for(i=1; i<=NF; i++) { print $i } }" | grep "browser_download_url" | grep  ".zip" | grep -v ".sha" | grep "win32" | grep -v 'arm64' | grep "x64" | | awk -F "browser_download_url" "{ print $2 }" | awk -F '"' "{ print $3 }"`
           echo "download_url: $download_url"
           if [ -z "$online_version" ]; then
             echo "online_version is null"
