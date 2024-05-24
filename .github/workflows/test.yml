@@ -155,7 +155,7 @@ jobs:
         if: ${{ env.NEW_VERSION }}
         with:
           tag_name: ${{ env.NEW_VERSION }}
-          name: Build ${{ env.NEW_VERSION }}
+          name: ${{ env.NEW_VERSION }}
           body: |
             ### Commits
             Build With VSCodium ${{ env.NEW_VERSION }}
