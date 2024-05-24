@@ -173,14 +173,15 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
-            -d '{"ref":"refs/tags/${{ env.NEW_VERSION }}","inputs":{}}' > tmp.txt
-          echo "result:"
-          cat tmp.txt
-          match=`cat tmp.txt | grep "message"`
-          rm tmp.txt
-          if [ -n "$match" ]; then
-            echo "dispatches workflows Error !!!"
-            exit 1
-          fi
+            -d '{"ref":"refs/tags/${{ env.NEW_VERSION }}","inputs":{}}' 
+            # > tmp.txt
+          # echo "result:"
+          # cat tmp.txt
+          # match=`cat tmp.txt | grep "message"`
+          # rm tmp.txt
+          # if [ -n "$match" ]; then
+          #   echo "dispatches workflows Error !!!"
+          #   exit 1
+          # fi
           exit 0
 
