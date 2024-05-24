@@ -17,6 +17,7 @@ on:
       - main
     paths:
       - '.github/workflows/test.yml'
+      - 'build.properties'
 
       # only one run
 concurrency:
