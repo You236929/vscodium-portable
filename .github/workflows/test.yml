@@ -1,0 +1,173 @@
+name: test
+
+on:
+  schedule:
+    - cron: '30 0,12 * * *'
+  workflow_dispatch:
+    inputs:
+      ssh:
+        description: 'SSH connection to Actions'
+        required: false
+        default: 'false'
+  watch:
+    types: [ started ]
+  push:
+    branches:
+      - master
+      - main
+    paths:
+      - '.github/workflows/test.yml'
+
+      # only one run
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true  # true false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone Repo
+        uses: actions/checkout@main
+        with:
+          fetch-depth: 0
+
+      - name: Check Version
+        run: |
+          cur_version=$(cat build.properties | grep "app.version" | head -1 | awk -F '=' 'NR==1 {print $2}' | sed 's/ //g')
+          echo "cur_version: $cur_version"
+          if [ -z "$cur_version" ]; then
+            echo "cur_version is null"
+            exit 1
+          fi
+
+          repo="vscodium/vscodium"
+          curl -s https://api.github.com/repos/$repo/releases/latest > tmp_tmp.txt
+          #echo "$result"
+          echo $result | grep "tag_name"
+          tag_name=$(cat tmp_tmp.txt | grep "tag_name" | awk -F "tag_name" '{ print $2 }' | awk -F "\"" '{ print $3 }')
+          echo "tag_name: $tag_name"
+          
+          online_version="$tag_name"
+          echo "online_version: $online_version"
+
+          download_url=`cat tmp_tmp.txt | awk -F "," "{ for(i=1; i<=NF; i++) { print $i } }" | grep "browser_download_url" | grep  ".zip" | grep -v ".sha" | grep "win32" | grep -v 'arm64' | grep "x64" | awk -F "\"" "{ print $4 }`
+          echo "download_url: $download_url"
+          if [ -z "$online_version" ]; then
+            echo "online_version is null"
+            exit 1
+          fi
+          if [ -z "$download_url" ]; then
+            echo "download_url is null"
+            exit 1
+          fi
+          rm -f tmp_tmp.txt
+
+          
+
+          sed -i "s/$cur_version/$online_version/g" build.properties
+
+          find_val=""
+          find_val_by_conf(){
+            find_txt="$1"
+            find_val=""
+            find_val=$( cat build.properties | grep "$find_txt" | head -1 | awk -F '=' 'NR==1 {print $2}' | sed 's/ //g' )
+            if [ -z "$find_val" ]; then
+              echo "$find_txt is null"
+              exit 1
+            fi
+          }
+
+          repalce_data(){
+            find_txt="$1"
+            new_replace_val="$2"
+            replace_txt="$find_txt = $new_replace_val"
+            sed -ri "s#($find_txt\s*=\s*)[^\n]*#$replace_txt#g" build.properties
+            match=$( grep "$replace_txt" build.properties )
+            if [ -z "$match" ];then
+              echo "Not repalce '$find_txt' !"
+              exit 1
+            fi
+          }
+
+          #########  update download url
+          echo ""
+          find_txt="atf.win64.url"
+          find_val_by_conf "$find_txt"
+          echo "find_val: $find_txt = $find_val"
+
+          new_replace_val="$download_url"
+          echo "new_replace_val: $find_txt = $new_replace_val"
+          repalce_data "$find_txt" "$new_replace_val"
+          echo ""
+
+          #########  update release version
+          echo ""
+          find_txt="app.release"
+          find_val_by_conf "$find_txt"
+          echo "find_val: $find_txt = $find_val"
+
+          new_replace_val=$(($find_val + 1))
+          echo "new_replace_val: $find_txt = $new_replace_val"
+          repalce_data "$find_txt" "$new_replace_val"
+          echo ""
+
+          #########  update papp.url
+          echo ""
+          find_txt="papp.url"
+          find_val_by_conf "$find_txt"
+          echo "find_val: $find_txt = $find_val"
+
+          new_replace_val="https://github.com/${{ github.repository }}"
+          echo "new_replace_val: $find_txt = $new_replace_val"
+          repalce_data "$find_txt" "$new_replace_val"
+          echo ""
+
+
+
+          if [ "$cur_version" = "$online_version" ]; then
+            echo "Not update !"
+            exit 0
+          fi
+          cat build.properties
+
+          git config --local user.name "GitHub Action"
+          git config --local user.email "action@github.com"
+          
+          git add build.properties
+          git commit -m "update VSCodium version to $online_version"
+          git push -f
+          tag_name="$online_version"
+          #git tag -a "$tag_name" -m "update VSCodium version to $online_version"
+          #git push origin "refs/tags/$tag_name"
+
+          git push origin --delete "refs/tags/$tag_name"
+
+          echo "NEW_VERSION=$online_version" >> $GITHUB_ENV
+
+      - name: Create release
+        uses: softprops/action-gh-release@v2
+        if: ${{ env.NEW_VERSION }}
+        with:
+          tag_name: ${{ env.NEW_VERSION }}
+          name: Build ${{ env.NEW_VERSION }}
+          body: |
+            ### Commits
+            Build With VSCodium ${{ env.NEW_VERSION }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+
+      - name: Check dispatches
+        if: ${{ env.NEW_VERSION }}
+        run: |
+          curl -L \
+            -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
+            -d '{"ref":"refs/tags/v${{ env.NEW_VERSION }}","inputs":{}}'
+
