@@ -181,4 +181,5 @@ jobs:
             echo "dispatches workflows Error !!!"
             exit 1
           fi
+          exit 0
 
