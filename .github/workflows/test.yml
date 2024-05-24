@@ -161,11 +161,18 @@ jobs:
       - name: Check dispatches
         if: ${{ env.NEW_VERSION }}
         run: |
-          curl -L \
+          result=`curl -L \
             -X POST \
             -H "Accept: application/vnd.github+json" \
             -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
             https://api.github.com/repos/${{ github.repository }}/actions/workflows/build.yml/dispatches \
-            -d '{"ref":"refs/tags/v${{ env.NEW_VERSION }}","inputs":{}}'
+            -d '{"ref":"refs/tags/v${{ env.NEW_VERSION }}","inputs":{}}'`
+          echo "result:"
+          echo "$result"
+          match=`echo $result | grep "message"`
+          if [ -n "$match"];then
+            echo "dispatches workflows Error !!!"
+            exit 1
+          fi
 
